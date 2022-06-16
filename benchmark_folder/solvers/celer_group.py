@@ -9,9 +9,9 @@ with safe_import_context() as import_ctx:
 class Solver(BaseSolver):
     name = 'celer'
 
-    # requirements = [
-    #     'pip: git+https://github.com/Badr-MOUFAD/celer.git@expose-acc-params'
-    # ]
+    requirements = [
+        'pip: git+https://github.com/Badr-MOUFAD/celer.git@expose-acc-params'
+    ]
 
     parameters = {
         'use_acc': [True, False],
