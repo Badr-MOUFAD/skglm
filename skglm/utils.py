@@ -282,7 +282,7 @@ class AndersonAcceleration:
             self.arr_w_[:, self.current_iter] = w
             self.arr_Xw_[:, self.current_iter] = Xw
             self.current_iter += 1
-            return w, Xw
+            return w, Xw, ''
 
         U = np.diff(self.arr_w_, axis=1)  # compute residuals
 
@@ -290,11 +290,11 @@ class AndersonAcceleration:
         try:
             inv_UTU_ones = np.linalg.solve(U.T @ U, np.ones(self.K))
         except np.linalg.LinAlgError:
-            return w, Xw
+            return w, Xw, 'not extrapolated [singular]'
         finally:
             self.current_iter = 0
 
         # extrapolate
         C = inv_UTU_ones / np.sum(inv_UTU_ones)
         # floating point errors may cause w and Xw to disagree
-        return self.arr_w_[:, 1:] @ C, self.arr_Xw_[:, 1:] @ C
+        return self.arr_w_[:, 1:] @ C, self.arr_Xw_[:, 1:] @ C, 'extrapolated'
