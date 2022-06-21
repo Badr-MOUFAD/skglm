@@ -4,10 +4,11 @@ from skglm.utils import AndersonAcceleration
 
 
 max_iter, tol = 1000, 1e-9
-n_features = 3
+n_features = 30
 np.random.seed(0)
 rho = np.random.rand(n_features)
-w_star = 1 / (1 - rho)
+b = 0
+w_star = b / (1 - rho)
 X = np.eye(n_features)
 
 
@@ -18,7 +19,7 @@ Xw = X @ w
 for i in range(max_iter):
     w, Xw, log = acc.extrapolate(w, Xw)
     print(f"Iter {i}: {log}")
-    w = rho * w + 1
+    w = rho * w + b
     Xw = X @ w
 
     if norm(w - w_star, ord=np.inf) < tol:
@@ -33,7 +34,7 @@ print("===========")
 # with acceleration
 w = np.ones(n_features)
 for i in range(max_iter):
-    w = rho * w + 1
+    w = rho * w + b
 
     if norm(w - w_star, ord=np.inf) < tol:
         break
