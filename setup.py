@@ -32,5 +32,5 @@ setup(name=DISTNAME,
       download_url=DOWNLOAD_URL,
       packages=find_packages(),
       install_requires=['numpy>=1.12', 'numba',
-                        'scipy>=0.18.0', 'scikit-learn>=1.0']
+                        'scipy>=0.18.0', 'scikit-learn>=1.0'] 
       )
