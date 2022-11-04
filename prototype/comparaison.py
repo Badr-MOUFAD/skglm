@@ -2,14 +2,14 @@ import numpy as np
 from numpy.linalg import norm
 import matplotlib.pyplot as plt
 
-from celer import Lasso
+from sklearn.linear_model import Lasso
 from skglm.utils import make_correlated_data
 
 from prototype.pd_lasso import (fb_lasso, cp_lasso, forward_backward,
                                 cd, _compute_obj)
 
 
-EPS_FLOATING = 1e-10
+EPS_FLOATING = 1e-9
 reg = 1e-1
 n_samples, n_features = 1000, 100
 fig, axarr = plt.subplots(1, 2, sharey=False, figsize=[8., 3],
@@ -21,9 +21,9 @@ for normalize, ax in zip([False, True], axarr):
         A /= norm(A, axis=0)
 
     n_samples, n_features = A.shape
-    alpha_max = norm(A.T @ b, ord=np.inf)
+    alpha_max = norm(A.T @ b, ord=np.inf) / n_samples
 
-    max_iter = 400
+    max_iter = 300
     alpha = reg * alpha_max
 
     print(f"========== {normalize} ================")
@@ -49,7 +49,7 @@ for normalize, ax in zip([False, True], axarr):
 
     # find optimal val
     lasso = Lasso(fit_intercept=False,
-                  alpha=alpha / n_samples, tol=EPS_FLOATING).fit(A, b)
+                  alpha=alpha, tol=EPS_FLOATING).fit(A, b)
     w_start = lasso.coef_.flatten()
     p_star = _compute_obj(b, A, w_start, alpha) - EPS_FLOATING
 
@@ -57,6 +57,8 @@ for normalize, ax in zip([False, True], axarr):
     ax.semilogy(p_objs_cp - p_star, label="Chambolle Pock")
     ax.semilogy(p_objs - p_star, label="forward-backward")
     ax.semilogy(p_objs_cd - p_star, label="cyclic CD")
+
+    print(p_objs_cd - p_star)
 
     ax.legend()
     ax.set_xlabel("iteration")

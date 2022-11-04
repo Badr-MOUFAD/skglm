@@ -97,13 +97,13 @@ def forward_backward(A, b, alpha, max_iter=1000, verbose=0):
     # using forward backward approach
     n_samples, n_features = A.shape
 
-    step = 1 / norm(A, ord=2) ** 2
+    step = n_samples / norm(A, ord=2) ** 2
     x = np.zeros(n_features)
 
     p_obj_out = []
 
     for iter in range(max_iter):
-        x = ST_vec(x + step * A.T @ (b - A @ x), step * alpha)
+        x = ST_vec(x + step * A.T @ (b - A @ x) / n_samples, step * alpha)
 
         if verbose:
             print(f"Iter {iter+1}: {_compute_obj(b, A, x, alpha):.10f}")
@@ -117,7 +117,7 @@ def cd(A, b, alpha, max_iter=1000, verbose=0):
     # using CD
     n_samples, n_features = A.shape
 
-    steps = 1 / norm(A, axis=0, ord=2) ** 2
+    steps = n_samples / norm(A, axis=0, ord=2) ** 2
     x = np.zeros(n_features)
 
     all_features = np.arange(n_features)
@@ -126,7 +126,8 @@ def cd(A, b, alpha, max_iter=1000, verbose=0):
     for iter in range(max_iter):
 
         for j in all_features:
-            x[j] = ST_vec(x[j] + steps[j] * A[:, j] @ (b - A @ x), steps[j] * alpha)
+            x[j] = ST(x[j] + steps[j] * A[:, j] @ (b - A @ x) / n_samples,
+                      steps[j] * alpha)
 
         if verbose:
             print(f"Iter {iter+1}: {_compute_obj(b, A, x, alpha):.10f}")
@@ -151,4 +152,4 @@ def _prox_g(x, step, alpha, b, A):
 
 
 def _prox_h_star(y, step, b, A):
-    return (y/step - b) / (1 + 1/step)
+    return (y/step - b) / (len(b) + 1/step)

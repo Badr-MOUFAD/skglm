@@ -16,12 +16,12 @@ def test_solver(solver):
     A, b, _ = make_correlated_data(n_samples, n_features,
                                    random_state=0)
 
-    alpha_max = norm(A.T @ b, ord=np.inf)
+    alpha_max = norm(A.T @ b, ord=np.inf) / n_samples
     alpha = rho * alpha_max
 
-    w, _ = solver(A, b, alpha, max_iter=1000)
+    w, _ = solver(A, b, alpha, max_iter=2000)
     lasso = Lasso(fit_intercept=False,
-                  alpha=alpha / n_samples).fit(A, b)
+                  alpha=alpha).fit(A, b)
 
     np.testing.assert_allclose(w, lasso.coef_.flatten(), atol=1e-4)
 
