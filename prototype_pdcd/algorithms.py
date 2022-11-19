@@ -7,7 +7,8 @@ from skglm.utils import compiled_clone
 
 class PDCD_WS:
 
-    def __init__(self, max_iter=1000, verbose=False, p0=10, tol=1e-9, return_p_objs=False):
+    def __init__(self, max_iter=1000, verbose=False,
+                 p0=10, tol=1e-6, return_p_objs=False):
         self.max_iter = max_iter
         self.p0 = p0
         self.tol = tol
@@ -57,7 +58,7 @@ class PDCD_WS:
                 current_p_obj = datafit.value(y, Xw) + penalty.value(w)
                 p_objs.append(current_p_obj)
 
-            if stop_crit <= self.tol:
+            if stop_crit <= tol:
                 break
 
             gsupp_size = (w != 0).sum()
@@ -123,14 +124,17 @@ class PDCD_WS:
 
 class PDCD:
 
-    def __init__(self, max_iter=1000, verbose=False, return_p_objs=False):
+    def __init__(self, max_iter=1000, verbose=False, tol=1e-6, return_p_objs=False):
         self.max_iter = max_iter
         self.verbose = verbose
+        self.tol = tol
         self.return_p_objs = return_p_objs
 
     def solve(self, X, y, datafit_, penalty_):
         datafit, penalty = PDCD._initialize(datafit_, penalty_)
+
         n_samples, n_features = X.shape
+        tol = self.tol
 
         # init steps
         dual_step = 1 / norm(X, ord=2)
@@ -146,6 +150,7 @@ class PDCD:
 
         # store primal obj
         p_objs = []
+        all_features = np.arange(n_features)
 
         for iter in range(self.max_iter):
             # inplace update of w, , Xw, z, and z_bar
@@ -159,6 +164,19 @@ class PDCD:
             if self.return_p_objs:
                 current_p_obj = datafit.value(y, Xw) + penalty.value(w)
                 p_objs.append(current_p_obj)
+
+            # check convergence
+            if iter % 100 == 0:
+                opts_primal = penalty.subdiff_distance(X.T @ z, w, all_features)
+                opt_dual = datafit.subdiff_distance(Xw, z, y)
+
+                stop_crit = max(
+                    max(opts_primal),
+                    opt_dual
+                )
+
+                if stop_crit <= tol:
+                    break
 
         return w, np.asarray(p_objs)
 
@@ -193,14 +211,17 @@ class PDCD:
 
 class ChambollePock:
 
-    def __init__(self, max_iter=1000, verbose=False, return_p_objs=False):
+    def __init__(self, max_iter=1000, verbose=False, tol=1e-6, return_p_objs=False):
         self.max_iter = max_iter
         self.verbose = verbose
+        self.tol = tol
         self.return_p_objs = return_p_objs
 
     def solve(self, X, y, datafit_, penalty_):
         datafit, penalty = ChambollePock._initialize(datafit_, penalty_)
+
         n_samples, n_features = X.shape
+        tol = self.tol
 
         # init steps
         L = norm(X, ord=2)
@@ -216,6 +237,7 @@ class ChambollePock:
 
         # store primal obj
         p_objs = []
+        all_features = np.arange(n_features)
 
         for iter in range(self.max_iter):
             # inplace update of w, w_bar, and z
@@ -229,6 +251,19 @@ class ChambollePock:
             if self.return_p_objs:
                 current_p_obj = datafit.value(y, X @ w) + penalty.value(w)
                 p_objs.append(current_p_obj)
+
+            # check convergence
+            if iter % 100 == 0:
+                opts_primal = penalty.subdiff_distance(X.T @ z, w, all_features)
+                opt_dual = datafit.subdiff_distance(X @ w, z, y)
+
+                stop_crit = max(
+                    max(opts_primal),
+                    opt_dual
+                )
+
+                if stop_crit <= tol:
+                    break
 
         return w, np.asarray(p_objs)
 
@@ -251,7 +286,3 @@ class ChambollePock:
         compiled_penalty = compiled_clone(penalty)
 
         return compiled_datafit, compiled_penalty
-
-# print("primal: ", max(penalty.subdiff_distance(X.T @ z, w)))
-# print("dual: ", datafit.subdiff_distance(Xw, z, y))
-# print("=============================================")
