@@ -20,6 +20,9 @@ class Quadratic:
         inv_step = 1 / step
         return z - step * self.prox(inv_step * z, inv_step, y)
 
+    def subdiff_distance(self, Xw, z, y):
+        return norm(Xw - y - z, ord=2)
+
     def get_spec(self):
         pass
 

@@ -50,4 +50,14 @@ def test_on_Lasso(solver_class):
 
 
 if __name__ == '__main__':
+    rho = 0.1
+    n_samples, n_features = 50, 10
+    X, y, _ = make_correlated_data(n_samples, n_features, random_state=0)
+
+    alpha_max = norm(X.T @ y, ord=np.inf)
+    alpha = rho * alpha_max
+
+    quad_datafit = Quadratic()
+    l1_penalty = L1(alpha)
+    w, _ = PDCD().solve(X, y, quad_datafit, l1_penalty)
     pass

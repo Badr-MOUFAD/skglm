@@ -1,3 +1,4 @@
+import numpy as np
 from numba import float64
 
 from numpy.linalg import norm
@@ -18,6 +19,18 @@ class L1:
 
     def prox_1D(self, w_j, step):
         return ST(w_j, self.alpha * step)
+
+    def subdiff_distance(self, grad, w):
+        n_features = len(w)
+        subdiff_dist = np.zeros(n_features)
+
+        for j in range(n_features):
+            if w[j] == 0:
+                subdiff_dist[j] = max(0, np.abs(grad[j]) - self.alpha)
+            else:
+                subdiff_dist[j] = abs(-grad[j] - np.sign(w[j]) * self.alpha)
+
+        return subdiff_dist
 
     def get_spec(self):
         spec = (
