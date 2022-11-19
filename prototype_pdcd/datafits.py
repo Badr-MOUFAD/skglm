@@ -20,6 +20,12 @@ class Quadratic:
         inv_step = 1 / step
         return z - step * self.prox(inv_step * z, inv_step, y)
 
+    def get_spec(self):
+        pass
+
+    def params_to_dict(self):
+        return dict()
+
 
 class SqrtQuadratic:
     """||y - Xw||^2"""
@@ -37,3 +43,9 @@ class SqrtQuadratic:
     def prox_conjugate(self, z, step, y):
         inv_step = 1 / step
         return z - step * self.prox(inv_step * z, inv_step, y)
+
+    def get_spec(self):
+        pass
+
+    def params_to_dict(self):
+        return dict()

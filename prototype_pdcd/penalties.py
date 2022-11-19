@@ -1,3 +1,5 @@
+from numba import float64
+
 from numpy.linalg import norm
 from skglm.utils import ST, ST_vec
 
@@ -16,3 +18,12 @@ class L1:
 
     def prox_1D(self, w_j, step):
         return ST(w_j, self.alpha * step)
+
+    def get_spec(self):
+        spec = (
+            ('alpha', float64),
+        )
+        return spec
+
+    def params_to_dict(self):
+        return dict(alpha=self.alpha)

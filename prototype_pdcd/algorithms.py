@@ -1,6 +1,9 @@
 import numpy as np
 from numpy.linalg import norm
 
+from numba import njit
+from skglm.utils import compiled_clone
+
 
 class PDCD:
 
@@ -20,9 +23,10 @@ class ChambollePock:
     def __init__(self, max_iter=1000, verbose=False, return_p_objs=False):
         self.max_iter = max_iter
         self.verbose = verbose
-        self.return_p_obj = return_p_objs
+        self.return_p_objs = return_p_objs
 
-    def solve(self, X, y, datafit, penalty):
+    def solve(self, X, y, datafit_, penalty_):
+        datafit, penalty = ChambollePock._initialize(datafit_, penalty_)
         n_samples, n_features = X.shape
 
         # init steps
@@ -41,22 +45,36 @@ class ChambollePock:
         p_objs = []
 
         for iter in range(self.max_iter):
-            # dual update
-            z = datafit.prox_conjugate(z + dual_step * X @ w_bar,
-                                       dual_step, y)
-
-            # primal update
-            old_w = w.copy()
-            w = penalty.prox(old_w - primal_step * X.T @ z,
-                             primal_step, y)
-            w_bar = 2 * w - old_w
+            # inplace update of w, w_bar, and z
+            ChambollePock._one_iter(y, X, w, w_bar, z, datafit, penalty,
+                                    primal_step, dual_step)
 
             if self.verbose:
-                current_p_obj = datafit.value(y, X, X @ w) + penalty.value(w)
+                current_p_obj = datafit.value(y, X @ w) + penalty.value(w)
                 print(f"Iter {iter+1}: {current_p_obj:.10f}")
 
             if self.return_p_objs:
-                current_p_obj = datafit.value(y, X, X @ w) + penalty.value(w)
+                current_p_obj = datafit.value(y, X @ w) + penalty.value(w)
                 p_objs.append(current_p_obj)
 
         return w, np.asarray(p_objs)
+
+    @staticmethod
+    def _initialize(datafit, penalty):
+        compiled_datafit = compiled_clone(datafit)
+        compiled_penalty = compiled_clone(penalty)
+
+        return compiled_datafit, compiled_penalty
+
+    @staticmethod
+    @njit
+    def _one_iter(y, X, w, w_bar, z, datafit, penalty, primal_step, dual_step):
+        # dual update
+        z[:] = datafit.prox_conjugate(z + dual_step * X @ w_bar,
+                                      dual_step, y)
+
+        # primal update
+        old_w = w.copy()
+        w[:] = penalty.prox(old_w - primal_step * X.T @ z,
+                            primal_step)
+        w_bar[:] = 2 * w - old_w
