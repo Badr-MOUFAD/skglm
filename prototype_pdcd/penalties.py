@@ -20,15 +20,14 @@ class L1:
     def prox_1D(self, w_j, step):
         return ST(w_j, self.alpha * step)
 
-    def subdiff_distance(self, grad, w):
-        n_features = len(w)
-        subdiff_dist = np.zeros(n_features)
+    def subdiff_distance(self, grad, w, ws):
+        subdiff_dist = np.zeros_like(grad)
 
-        for j in range(n_features):
+        for idx, j in enumerate(ws):
             if w[j] == 0:
-                subdiff_dist[j] = max(0, np.abs(grad[j]) - self.alpha)
+                subdiff_dist[idx] = max(0, np.abs(grad[idx]) - self.alpha)
             else:
-                subdiff_dist[j] = abs(-grad[j] - np.sign(w[j]) * self.alpha)
+                subdiff_dist[idx] = abs(-grad[idx] - np.sign(w[j]) * self.alpha)
 
         return subdiff_dist
 
