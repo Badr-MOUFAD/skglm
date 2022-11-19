@@ -1,7 +1,10 @@
+import pytest
+
 import numpy as np
 from prototype_pdcd.datafits import Quadratic, SqrtQuadratic
 
 
+@pytest.mark.parametrize("datafit_class", [Quadratic, SqrtQuadratic])
 def test_prox_prox_star(datafit_class):
     n_dim, step, random_state = 10, 0.3, 1236
     rng = np.random.RandomState(random_state)
@@ -21,4 +24,4 @@ def test_prox_prox_star(datafit_class):
 
 
 if __name__ == '__main__':
-    test_prox_prox_star(SqrtQuadratic)
+    pass
