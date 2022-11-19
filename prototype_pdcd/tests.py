@@ -16,8 +16,8 @@ def test_prox_prox_star(datafit_class):
     quad_datafit = datafit_class()
     # check using Moreau decomposition
     np.testing.assert_allclose(
-        step * quad_datafit.prox(y, w/step, 1/step) +
-        quad_datafit.prox_conjugate(y, w, step),
+        step * quad_datafit.prox(w/step, 1/step, y) +
+        quad_datafit.prox_conjugate(w, step, y),
         w,
         atol=1e-15
     )

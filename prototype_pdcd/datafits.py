@@ -13,12 +13,12 @@ class Quadratic:
     def value(self, y, Xw):
         return 0.5 * np.sum((y - Xw)**2)
 
-    def prox(self, y, w, step):
+    def prox(self, w, step, y):
         return (w + step * y) / (1 + step)
 
-    def prox_conjugate(self, y, z, step):
+    def prox_conjugate(self, z, step, y):
         inv_step = 1 / step
-        return z - step * self.prox(y, inv_step * z, inv_step)
+        return z - step * self.prox(inv_step * z, inv_step, y)
 
 
 class SqrtQuadratic:
@@ -30,10 +30,10 @@ class SqrtQuadratic:
     def value(self, y, Xw):
         return norm(y - Xw, ord=2)
 
-    def prox(self, y, w, step):
+    def prox(self, w, step, y):
         """Block soft-thresholding of vector x at level u."""
         return BST(y - w, step)
 
-    def prox_conjugate(self, y, z, step):
+    def prox_conjugate(self, z, step, y):
         inv_step = 1 / step
-        return z - step * self.prox(y, inv_step * z, inv_step)
+        return z - step * self.prox(inv_step * z, inv_step, y)
