@@ -30,7 +30,7 @@ def test_prox_prox_star(datafit_class):
     )
 
 
-@pytest.mark.parametrize("solver_class", [ChambollePock])
+@pytest.mark.parametrize("solver_class", [ChambollePock, PDCD])
 def test_on_Lasso(solver_class):
     rho = 0.1
     n_samples, n_features = 50, 10

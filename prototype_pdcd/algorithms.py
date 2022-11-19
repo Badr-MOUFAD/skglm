@@ -7,15 +7,61 @@ from skglm.utils import compiled_clone
 
 class PDCD:
 
-    def __init__(self):
-        pass
+    def __init__(self, max_iter=1000, verbose=False, return_p_objs=False):
+        self.max_iter = max_iter
+        self.verbose = verbose
+        self.return_p_objs = return_p_objs
 
-    def solve(self):
-        return
+    def solve(self, X, y, datafit, penalty):
+        n_samples, n_features = X.shape
+
+        # init steps
+        dual_step = 1 / norm(X, ord=2)
+        primal_steps = 1 / norm(X, axis=0, ord=2)
+
+        # primal vars
+        w = np.zeros(n_features)
+        Xw = np.zeros(n_samples)
+
+        # dual vars
+        z = np.zeros(n_samples)
+        z_bar = np.zeros(n_samples)
+
+        # store primal obj
+        p_objs = []
+
+        for iter in range(self.max_iter):
+
+            for j in range(n_features):
+                # update primal
+                old_w_j = w[j]
+                w[j] = penalty.prox_1D(old_w_j - primal_steps[j] * X[:, j] @ (2 * z_bar - z),
+                                       primal_steps[j])
+
+                if old_w_j != w[j]:
+                    Xw += (w[j] - old_w_j) * X[:, j]
+
+                # update dual
+                z_bar = datafit.prox_conjugate(z + dual_step * Xw,
+                                               dual_step, y)
+                z += (z_bar - z) / n_features
+
+            if self.verbose:
+                current_p_obj = datafit.value(y, Xw) + penalty.value(w)
+                print(f"Iter {iter+1}: {current_p_obj:.10f}")
+
+            if self.return_p_objs:
+                current_p_obj = datafit.value(y, Xw) + penalty.value(w)
+                p_objs.append(current_p_obj)
+
+        return w, np.asarray(p_objs)
 
     @staticmethod
-    def _compute_objective():
-        return
+    def _initialize(datafit, penalty):
+        compiled_datafit = compiled_clone(datafit)
+        compiled_penalty = compiled_clone(penalty)
+
+        return compiled_datafit, compiled_penalty
 
 
 class ChambollePock:
