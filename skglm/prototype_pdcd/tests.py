@@ -8,6 +8,7 @@ from skglm.prototype_pdcd.algorithms import ChambollePock, PDCD, PDCD_WS
 from skglm.prototype_pdcd.datafits import Quadratic, SqrtQuadratic
 
 from sklearn.linear_model import Lasso
+from skglm.experimental import SqrtLasso
 from skglm.utils import make_correlated_data
 
 
@@ -49,15 +50,33 @@ def test_on_Lasso(solver_class):
     np.testing.assert_allclose(w, lasso.coef_.flatten(), atol=1e-6)
 
 
-if __name__ == '__main__':
+@pytest.mark.parametrize("solver_class", [ChambollePock, PDCD, PDCD_WS])
+def test_on_sqrt_lasso(solver_class):
     rho = 0.1
-    n_samples, n_features = 50, 100
+    n_samples, n_features = 50, 10
     X, y, _ = make_correlated_data(n_samples, n_features, random_state=0)
 
-    alpha_max = norm(X.T @ y, ord=np.inf)
+    alpha_max = norm(X.T @ y, ord=np.inf) / norm(y)
     alpha = rho * alpha_max
 
-    quad_datafit = Quadratic()
+    quad_datafit = SqrtQuadratic()
     l1_penalty = L1(alpha)
-    w, _ = PDCD_WS(verbose=1, p0=10).solve(X, y, quad_datafit, l1_penalty)
+    w, _ = solver_class(verbose=1).solve(X, y, quad_datafit, l1_penalty)
+
+    sqrt_lasso = SqrtLasso(alpha=alpha / np.sqrt(n_samples), tol=1e-6).fit(X, y)
+
+    np.testing.assert_allclose(w, sqrt_lasso.coef_.flatten(), atol=1e-5)
+
+
+if __name__ == '__main__':
+    # rho = 0.1
+    # n_samples, n_features = 50, 100
+    # X, y, _ = make_correlated_data(n_samples, n_features, random_state=0)
+
+    # alpha_max = norm(X.T @ y, ord=np.inf)
+    # alpha = rho * alpha_max
+
+    # quad_datafit = Quadratic()
+    # l1_penalty = L1(alpha)
+    # w, _ = PDCD_WS(verbose=1, p0=10).solve(X, y, quad_datafit, l1_penalty)
     pass
