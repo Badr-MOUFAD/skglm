@@ -3,9 +3,9 @@ import pytest
 import numpy as np
 from numpy.linalg import norm
 
-from prototype_pdcd.penalties import L1
-from prototype_pdcd.algorithms import ChambollePock, PDCD, PDCD_WS
-from prototype_pdcd.datafits import Quadratic, SqrtQuadratic
+from skglm.prototype_pdcd.penalties import L1
+from skglm.prototype_pdcd.algorithms import ChambollePock, PDCD, PDCD_WS
+from skglm.prototype_pdcd.datafits import Quadratic, SqrtQuadratic
 
 from sklearn.linear_model import Lasso
 from skglm.utils import make_correlated_data
@@ -51,7 +51,7 @@ def test_on_Lasso(solver_class):
 
 if __name__ == '__main__':
     rho = 0.1
-    n_samples, n_features = 500, 1000
+    n_samples, n_features = 50, 100
     X, y, _ = make_correlated_data(n_samples, n_features, random_state=0)
 
     alpha_max = norm(X.T @ y, ord=np.inf)
@@ -59,5 +59,5 @@ if __name__ == '__main__':
 
     quad_datafit = Quadratic()
     l1_penalty = L1(alpha)
-    w, _ = PDCD_WS(verbose=0).solve(X, y, quad_datafit, l1_penalty)
+    w, _ = PDCD_WS(verbose=1).solve(X, y, quad_datafit, l1_penalty)
     pass
