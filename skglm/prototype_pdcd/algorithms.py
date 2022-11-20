@@ -16,7 +16,7 @@ class PDCD_WS:
         self.return_p_objs = return_p_objs
 
     def solve(self, X, y, datafit_, penalty_):
-        datafit, penalty = PDCD._initialize(datafit_, penalty_)
+        datafit, penalty = PDCD_WS._initialize(datafit_, penalty_)
 
         tol = self.tol
         n_samples, n_features = X.shape
@@ -61,8 +61,9 @@ class PDCD_WS:
             if stop_crit <= tol:
                 break
 
+            p0 = n_features if iter == 0 else self.p0
             gsupp_size = (w != 0).sum()
-            ws_size = max(min(self.p0, n_features),
+            ws_size = max(min(p0, n_features),
                           min(n_features, 2 * gsupp_size))
 
             # similar to np.argsort()[-ws_size:] but without sorting

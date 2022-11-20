@@ -59,5 +59,5 @@ if __name__ == '__main__':
 
     quad_datafit = Quadratic()
     l1_penalty = L1(alpha)
-    w, _ = PDCD_WS(verbose=1).solve(X, y, quad_datafit, l1_penalty)
+    w, _ = PDCD_WS(verbose=1, p0=10).solve(X, y, quad_datafit, l1_penalty)
     pass
