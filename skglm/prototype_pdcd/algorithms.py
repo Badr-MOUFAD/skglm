@@ -68,7 +68,7 @@ class PDCD_WS:
 
             # solve sub problem
             PDCD_WS._solve_subproblem(y, X, w, Xw, z, z_bar, datafit, penalty,
-                                      primal_steps, dual_step, ws, tol_in=0.1*stop_crit)
+                                      primal_steps, dual_step, ws, tol_in=0.5*stop_crit)
 
         return w, np.asarray(p_objs)
 
@@ -76,7 +76,6 @@ class PDCD_WS:
     @njit
     def _solve_subproblem(y, X, w, Xw, z, z_bar, datafit, penalty,
                           primal_steps, dual_step, ws, tol_in):
-        n_features = X.shape[1]
         ws_size = len(ws)
         past_pseudo_grads = np.zeros(ws_size)
 
@@ -85,11 +84,9 @@ class PDCD_WS:
             for idx, j in enumerate(ws):
                 # update primal
                 old_w_j = w[j]
-                pseudo_grad_j = X[:, j] @ (2 * z_bar - z)
-                w[j] = penalty.prox_1D(old_w_j - primal_steps[j] * pseudo_grad_j,
+                past_pseudo_grads[idx] = X[:, j] @ z
+                w[j] = penalty.prox_1D(old_w_j - primal_steps[j] * past_pseudo_grads[idx],
                                        primal_steps[j])
-
-                past_pseudo_grads[idx] = pseudo_grad_j
 
                 # keep Xw syncr with X @ w
                 if old_w_j != w[j]:
@@ -98,10 +95,10 @@ class PDCD_WS:
                 # update dual
                 z_bar[:] = datafit.prox_conjugate(z + dual_step * Xw,
                                                   dual_step, y)
-                z += (z_bar - z) / n_features
+                z += (z_bar - z) / ws_size
 
             # check convergence
-            if epoch % 100 == 0:
+            if epoch % 10 == 0:
                 opts_primal_in = penalty.subdiff_distance(past_pseudo_grads, w, ws)
                 opt_dual_in = datafit.subdiff_distance(Xw, z, y)
 
