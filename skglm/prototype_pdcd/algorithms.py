@@ -84,7 +84,7 @@ class PDCD_WS:
             for idx, j in enumerate(ws):
                 # update primal
                 old_w_j = w[j]
-                past_pseudo_grads[idx] = X[:, j] @ z
+                past_pseudo_grads[idx] = X[:, j] @ (2 * z_bar - z)
                 w[j] = penalty.prox_1D(old_w_j - primal_steps[j] * past_pseudo_grads[idx],
                                        primal_steps[j])
 
