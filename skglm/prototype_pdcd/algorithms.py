@@ -68,7 +68,7 @@ class PDCD_WS:
 
             # solve sub problem
             PDCD_WS._solve_subproblem(y, X, w, Xw, z, z_bar, datafit, penalty,
-                                      primal_steps, dual_step, ws, tol_in=0.5*stop_crit)
+                                      primal_steps, dual_step, ws, tol_in=0.3*stop_crit)
 
         return w, np.asarray(p_objs)
 
