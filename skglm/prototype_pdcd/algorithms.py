@@ -8,7 +8,7 @@ from skglm.utils import compiled_clone
 class PDCD_WS:
 
     def __init__(self, max_iter=1000, verbose=False,
-                 p0=10, tol=1e-6, return_p_objs=False):
+                 p0=100, tol=1e-6, return_p_objs=False):
         self.max_iter = max_iter
         self.p0 = p0
         self.tol = tol
@@ -17,8 +17,6 @@ class PDCD_WS:
 
     def solve(self, X, y, datafit_, penalty_):
         datafit, penalty = PDCD_WS._initialize(datafit_, penalty_)
-
-        tol = self.tol
         n_samples, n_features = X.shape
 
         # init steps
@@ -58,12 +56,11 @@ class PDCD_WS:
                 current_p_obj = datafit.value(y, Xw) + penalty.value(w)
                 p_objs.append(current_p_obj)
 
-            if stop_crit <= tol:
+            if stop_crit <= self.tol:
                 break
 
-            p0 = n_features if iter == 0 else self.p0
             gsupp_size = (w != 0).sum()
-            ws_size = max(min(p0, n_features),
+            ws_size = max(min(self.p0, n_features),
                           min(n_features, 2 * gsupp_size))
 
             # similar to np.argsort()[-ws_size:] but without sorting
@@ -71,7 +68,7 @@ class PDCD_WS:
 
             # solve sub problem
             PDCD_WS._solve_subproblem(y, X, w, Xw, z, z_bar, datafit, penalty,
-                                      primal_steps, dual_step, ws, tol_in=0.3*stop_crit)
+                                      primal_steps, dual_step, ws, tol_in=0.1*stop_crit)
 
         return w, np.asarray(p_objs)
 
@@ -79,6 +76,7 @@ class PDCD_WS:
     @njit
     def _solve_subproblem(y, X, w, Xw, z, z_bar, datafit, penalty,
                           primal_steps, dual_step, ws, tol_in):
+        n_features = X.shape[1]
         ws_size = len(ws)
         past_pseudo_grads = np.zeros(ws_size)
 
@@ -100,7 +98,7 @@ class PDCD_WS:
                 # update dual
                 z_bar[:] = datafit.prox_conjugate(z + dual_step * Xw,
                                                   dual_step, y)
-                z += (z_bar - z) / ws_size
+                z += (z_bar - z) / n_features
 
             # check convergence
             if epoch % 100 == 0:
