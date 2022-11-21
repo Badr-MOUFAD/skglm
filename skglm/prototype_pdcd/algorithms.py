@@ -60,7 +60,8 @@ class PDCD_WS:
                 break
 
             gsupp_size = (w != 0).sum()
-            ws_size = max(min(self.p0, n_features),
+            p0 = n_features if iter == 0 else self.p0
+            ws_size = max(min(p0, n_features),
                           min(n_features, 2 * gsupp_size))
 
             # similar to np.argsort()[-ws_size:] but without sorting
@@ -76,6 +77,7 @@ class PDCD_WS:
     @njit
     def _solve_subproblem(y, X, w, Xw, z, z_bar, datafit, penalty,
                           primal_steps, dual_step, ws, tol_in):
+        n_features = X.shape[1]
         ws_size = len(ws)
         past_pseudo_grads = np.zeros(ws_size)
 
@@ -95,7 +97,7 @@ class PDCD_WS:
                 # update dual
                 z_bar[:] = datafit.prox_conjugate(z + dual_step * Xw,
                                                   dual_step, y)
-                z += (z_bar - z) / ws_size
+                z += (z_bar - z) / n_features
 
             # check convergence
             if epoch % 10 == 0:
