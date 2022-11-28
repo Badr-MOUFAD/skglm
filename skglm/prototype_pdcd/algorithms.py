@@ -8,12 +8,14 @@ from skglm.utils import compiled_clone
 class PDCD_WS:
 
     def __init__(self, max_iter=1000, verbose=False,
-                 p0=100, tol=1e-6, return_p_objs=False):
+                 p0=100, tol=1e-6, return_p_objs=False,
+                 dual_init=None):
         self.max_iter = max_iter
         self.p0 = p0
         self.tol = tol
         self.verbose = verbose
         self.return_p_objs = return_p_objs
+        self.dual_init = dual_init
 
     def solve(self, X, y, datafit_, penalty_):
         datafit, penalty = PDCD_WS._initialize(datafit_, penalty_)
@@ -28,8 +30,8 @@ class PDCD_WS:
         Xw = np.zeros(n_samples)
 
         # dual vars
-        z = np.zeros(n_samples)
-        z_bar = np.zeros(n_samples)
+        z = np.zeros(n_samples) if self.dual_init is None else self.dual_init.copy()
+        z_bar = np.zeros(n_samples) if self.dual_init is None else self.dual_init.copy()
 
         # store primal obj
         p_objs = []
@@ -79,16 +81,17 @@ class PDCD_WS:
                           primal_steps, dual_step, ws, tol_in):
         n_features = X.shape[1]
         ws_size = len(ws)
-        past_pseudo_grads = np.zeros(ws_size)
+        past_pseudo_grad = np.zeros(ws_size)
 
         for epoch in range(1000):
 
             for idx, j in enumerate(ws):
                 # update primal
                 old_w_j = w[j]
-                past_pseudo_grads[idx] = X[:, j] @ (2 * z_bar - z)
-                w[j] = penalty.prox_1D(old_w_j - primal_steps[j] * past_pseudo_grads[idx],
-                                       primal_steps[j])
+                past_pseudo_grad[idx] = X[:, j] @ (2 * z_bar - z)
+                w[j] = penalty.prox_1D(
+                    old_w_j - primal_steps[j] * past_pseudo_grad[idx],
+                    primal_steps[j])
 
                 # keep Xw syncr with X @ w
                 if old_w_j != w[j]:
@@ -101,7 +104,7 @@ class PDCD_WS:
 
             # check convergence
             if epoch % 10 == 0:
-                opts_primal_in = penalty.subdiff_distance(past_pseudo_grads, w, ws)
+                opts_primal_in = penalty.subdiff_distance(past_pseudo_grad, w, ws)
                 opt_dual_in = datafit.subdiff_distance(Xw, z, y)
 
                 stop_crit_in = max(
@@ -122,11 +125,13 @@ class PDCD_WS:
 
 class PDCD:
 
-    def __init__(self, max_iter=1000, verbose=False, tol=1e-6, return_p_objs=False):
+    def __init__(self, max_iter=1000, verbose=False, tol=1e-6,
+                 return_p_objs=False, dual_init=None):
         self.max_iter = max_iter
         self.verbose = verbose
         self.tol = tol
         self.return_p_objs = return_p_objs
+        self.dual_init = dual_init
 
     def solve(self, X, y, datafit_, penalty_):
         datafit, penalty = PDCD._initialize(datafit_, penalty_)
@@ -143,8 +148,8 @@ class PDCD:
         Xw = np.zeros(n_samples)
 
         # dual vars
-        z = np.zeros(n_samples)
-        z_bar = np.zeros(n_samples)
+        z = np.zeros(n_samples) if self.dual_init is None else self.dual_init.copy()
+        z_bar = np.zeros(n_samples) if self.dual_init is None else self.dual_init.copy()
 
         # store primal obj
         p_objs = []
@@ -186,11 +191,11 @@ class PDCD:
         for j in range(n_features):
             # update primal
             old_w_j = w[j]
-            pseudo_grad_j = X[:, j] @ (2 * z_bar - z)
-            w[j] = penalty.prox_1D(old_w_j - primal_steps[j] * pseudo_grad_j,
-                                   primal_steps[j])
+            w[j] = penalty.prox_1D(
+                old_w_j - primal_steps[j] * X[:, j] @ (2 * z_bar - z),
+                primal_steps[j])
 
-            # keep Xw syncr with X @ w
+            # keep Xw synchro with X @ w
             if old_w_j != w[j]:
                 Xw += (w[j] - old_w_j) * X[:, j]
 
@@ -209,11 +214,13 @@ class PDCD:
 
 class ChambollePock:
 
-    def __init__(self, max_iter=1000, verbose=False, tol=1e-6, return_p_objs=False):
+    def __init__(self, max_iter=1000, verbose=False, tol=1e-6,
+                 return_p_objs=False, dual_init=None):
         self.max_iter = max_iter
         self.verbose = verbose
         self.tol = tol
         self.return_p_objs = return_p_objs
+        self.dual_init = dual_init
 
     def solve(self, X, y, datafit_, penalty_):
         datafit, penalty = ChambollePock._initialize(datafit_, penalty_)
@@ -231,7 +238,7 @@ class ChambollePock:
         w_bar = np.zeros(n_features)
 
         # dual vars
-        z = np.zeros(n_samples)
+        z = np.zeros(n_samples) if self.dual_init is None else self.dual_init.copy()
 
         # store primal obj
         p_objs = []

@@ -1,4 +1,5 @@
 import pytest
+from itertools import product
 
 import numpy as np
 from numpy.linalg import norm
@@ -31,8 +32,9 @@ def test_prox_prox_star(datafit_class):
     )
 
 
-@pytest.mark.parametrize("solver_class", [ChambollePock, PDCD, PDCD_WS])
-def test_on_Lasso(solver_class):
+@pytest.mark.parametrize("solver_class, with_dual_init",
+                         product([ChambollePock, PDCD, PDCD_WS], [True, False]))
+def test_on_Lasso(solver_class, with_dual_init):
     rho = 0.1
     n_samples, n_features = 50, 10
     X, y, _ = make_correlated_data(n_samples, n_features, random_state=0)
@@ -42,7 +44,8 @@ def test_on_Lasso(solver_class):
 
     quad_datafit = Quadratic()
     l1_penalty = L1(alpha)
-    w, _ = solver_class().solve(X, y, quad_datafit, l1_penalty)
+    dual_init = y if with_dual_init else None
+    w, _ = solver_class(dual_init=dual_init).solve(X, y, quad_datafit, l1_penalty)
 
     lasso = Lasso(fit_intercept=False,
                   alpha=alpha / n_samples).fit(X, y)
@@ -50,8 +53,9 @@ def test_on_Lasso(solver_class):
     np.testing.assert_allclose(w, lasso.coef_.flatten(), atol=1e-6)
 
 
-@pytest.mark.parametrize("solver_class", [ChambollePock, PDCD, PDCD_WS])
-def test_on_sqrt_lasso(solver_class):
+@pytest.mark.parametrize("solver_class, with_dual_init",
+                         product([ChambollePock, PDCD, PDCD_WS], [True, False]))
+def test_on_sqrt_lasso(solver_class, with_dual_init):
     rho = 0.1
     n_samples, n_features = 50, 10
     X, y, _ = make_correlated_data(n_samples, n_features, random_state=0)
@@ -61,7 +65,8 @@ def test_on_sqrt_lasso(solver_class):
 
     quad_datafit = SqrtQuadratic()
     l1_penalty = L1(alpha)
-    w, _ = solver_class(verbose=1).solve(X, y, quad_datafit, l1_penalty)
+    dual_init = y if with_dual_init else None
+    w, _ = solver_class(dual_init=dual_init).solve(X, y, quad_datafit, l1_penalty)
 
     sqrt_lasso = SqrtLasso(alpha=alpha / np.sqrt(n_samples), tol=1e-6).fit(X, y)
 
