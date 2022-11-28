@@ -2,7 +2,6 @@ import numpy as np
 from numba import njit
 
 from skglm.utils.jit_compilation import compiled_clone
-from skglm.solvers.common import construct_grad
 from skglm.prototype_acd.utils import AndersonAcceleration
 
 
@@ -38,7 +37,7 @@ class OptAndersonCD:
                 p_obj = datafit.value(y, w, Xw) + penalty.value(w)
                 print(
                     f"Iteration {iteration+1}: {p_obj:.10f}, "
-                    "stopping crit: {stop_crit:.2e}"
+                    f"stopping crit: {stop_crit:.2e}"
                 )
 
             # check converge
@@ -68,7 +67,7 @@ class OptAndersonCD:
         n_samples = X.shape[0]
 
         lipschitz = datafit.lipschitz
-        accelerator = AndersonAcceleration(5, n_samples, len(ws))
+        accelerator = AndersonAcceleration(5, n_samples, ws_size)
 
         for epoch in range(max_epochs):
 
@@ -113,3 +112,14 @@ class OptAndersonCD:
         datafit.initialize(X, y)
 
         return datafit, penalty
+
+
+@njit
+def construct_grad(X, y, w, Xw, datafit, ws):
+    raw_grad = datafit.raw_grad(y, Xw)
+
+    grad = np.zeros(len(ws))
+    for idx, j in enumerate(ws):
+        grad[idx] = X[:, j] @ raw_grad
+
+    return grad

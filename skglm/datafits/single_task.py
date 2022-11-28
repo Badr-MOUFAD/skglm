@@ -55,6 +55,9 @@ class Quadratic(BaseDatafit):
         for j in range(n_features):
             self.lipschitz[j] = (X[:, j] ** 2).sum() / len(y)
 
+    def raw_grad(self, y, Xw):
+        return (Xw - y) / len(y)
+
     def initialize_sparse(self, X_data, X_indptr, X_indices, y):
         n_features = len(X_indptr) - 1
         self.Xty = np.zeros(n_features, dtype=X_data.dtype)
