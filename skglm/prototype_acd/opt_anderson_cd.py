@@ -52,9 +52,8 @@ class OptAndersonCD:
             ws = np.argpartition(opt, -ws_size)[-ws_size:]
 
             # solve sub problem
-            OptAndersonCD._solve_subproblem(
-                X, y, w, Xw, datafit, penalty,
-                self.max_epochs, ws, 0.3*self.tol, self.verbose)
+            OptAndersonCD._solve_subproblem(X, y, w, Xw, datafit, penalty,
+                                            self.max_epochs, ws, tol_in=0.3*stop_crit)
 
         p_obj = datafit.value(y, w, Xw) + penalty.value(w)
         p_objs_out.append(p_obj)
@@ -63,11 +62,10 @@ class OptAndersonCD:
 
     @staticmethod
     @njit
-    def _solve_subproblem(X, y, w, Xw, datafit, penalty, max_epoch,
-                          ws, tol_in, verbose):
+    def _solve_subproblem(X, y, w, Xw, datafit, penalty, max_epochs, ws, tol_in):
         lipschitz = datafit.lipschitz
 
-        for epoch in range(max_epoch):
+        for epoch in range(max_epochs):
 
             # cd epoch
             for idx, j in enumerate(ws):
@@ -95,11 +93,6 @@ class OptAndersonCD:
                 opt_ws = penalty.subdiff_distance(w, grad_ws, ws)
 
                 stop_crit_in = np.max(opt_ws)
-
-                # if max(verbose-1, 0):
-                #     p_obj = datafit.value(y, w, Xw) + penalty.value(w)
-                #     print(f"Epoch {epoch+1}, objective {p_obj:.10f}, "
-                #           f"stopping crit {stop_crit_in:.2e}")
 
                 if stop_crit_in <= tol_in:
                     break
