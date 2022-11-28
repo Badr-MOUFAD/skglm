@@ -64,9 +64,11 @@ class OptAndersonCD:
     @njit
     def _solve_subproblem(X, y, w, Xw, datafit, penalty, max_epochs, ws, tol_in):
         ws_size = len(ws)
-        n_samples = X.shape[0]
-
+        n_samples, n_features = X.shape
         lipschitz = datafit.lipschitz
+
+        w_ws_acc = np.zeros(n_features)
+        Xw_ws_acc = np.zeros(n_samples)
         accelerator = AndersonAcceleration(5, n_samples, ws_size)
 
         for epoch in range(max_epochs):
@@ -89,7 +91,17 @@ class OptAndersonCD:
                     Xw += (w[j] - old_w_j) * X[:, j]
 
             # apply AA
-            w[ws], Xw[:], _ = accelerator.extrapolate(w[ws], Xw)
+            w_ws_acc[ws], Xw_ws_acc[:], is_extrap = accelerator.extrapolate(w[ws], Xw)
+
+            if is_extrap:
+                # TODO : manage penalty.value(w, ws) for weighted Lasso
+                p_obj = datafit.value(y, w, Xw) + penalty.value(w)
+                p_obj_acc = (datafit.value(y, w_ws_acc, Xw_ws_acc)
+                             + penalty.value(w_ws_acc))
+
+                if p_obj_acc < p_obj:
+                    w[ws], Xw[:] = w_ws_acc[ws], Xw_ws_acc
+                    p_obj = p_obj_acc
 
             # check convergence
             if epoch % 10 == 0:
