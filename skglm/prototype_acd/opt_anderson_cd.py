@@ -3,6 +3,7 @@ from numba import njit
 
 from skglm.utils.jit_compilation import compiled_clone
 from skglm.solvers.common import construct_grad
+from skglm.prototype_acd.utils import AndersonAcceleration
 
 
 class OptAndersonCD:
@@ -63,7 +64,11 @@ class OptAndersonCD:
     @staticmethod
     @njit
     def _solve_subproblem(X, y, w, Xw, datafit, penalty, max_epochs, ws, tol_in):
+        ws_size = len(ws)
+        n_samples = X.shape[0]
+
         lipschitz = datafit.lipschitz
+        accelerator = AndersonAcceleration(5, n_samples, len(ws))
 
         for epoch in range(max_epochs):
 
@@ -84,7 +89,8 @@ class OptAndersonCD:
                 if w[j] != old_w_j:
                     Xw += (w[j] - old_w_j) * X[:, j]
 
-            # TODO: AA acceleration
+            # apply AA
+            w[ws], Xw[:], _ = accelerator.extrapolate(w[ws], Xw)
 
             # check convergence
             if epoch % 10 == 0:
