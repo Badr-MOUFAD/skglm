@@ -62,8 +62,7 @@ class PDCD_WS:
                 break
 
             gsupp_size = (w != 0).sum()
-            p0 = n_features if iter == 0 else self.p0
-            ws_size = max(min(p0, n_features),
+            ws_size = max(min(self.p0, n_features),
                           min(n_features, 2 * gsupp_size))
 
             # similar to np.argsort()[-ws_size:] but without sorting
