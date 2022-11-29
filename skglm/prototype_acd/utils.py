@@ -7,8 +7,7 @@ from numba.experimental import jitclass
 @jitclass(
     (('K', int32),
      ('current_iter', int32),
-     ('arr_w', float64[:, ::1]),
-     ('arr_Xw', float64[:, ::1]))
+     ('arr_w', float64[:, ::1]))
 )
 class AndersonAcceleration:
     """Abstraction of Anderson Acceleration.
@@ -22,19 +21,17 @@ class AndersonAcceleration:
         Number of previous iterates to consider for extrapolation.
     """
 
-    def __init__(self, K, n_samples, n_features):
+    def __init__(self, K, n_features):
         self.K, self.current_iter = K, 0
         self.arr_w = np.zeros((n_features, K+1))
-        self.arr_Xw = np.zeros((n_samples, K+1))
 
-    def extrapolate(self, w, Xw):
+    def extrapolate(self, w):
         """Return w, Xw, and a bool indicating whether they were extrapolated."""
 
         if self.current_iter <= self.K:
             self.arr_w[:, self.current_iter] = w
-            self.arr_Xw[:, self.current_iter] = Xw
             self.current_iter += 1
-            return w, Xw, False
+            return w, False
 
         # compute residuals
         U = np.diff(self.arr_w)
@@ -43,14 +40,14 @@ class AndersonAcceleration:
         try:
             inv_UTU_ones = np.linalg.solve(U.T @ U, np.ones(self.K))
         except Exception:
-            return w, Xw, False
+            return w, False
         finally:
             self.current_iter = 0
 
         # extrapolate
         C = inv_UTU_ones / np.sum(inv_UTU_ones)
         # floating point errors may cause w and Xw to disagree
-        return self.arr_w[:, 1:] @ C, self.arr_Xw[:, 1:] @ C, True
+        return self.arr_w[:, 1:] @ C, True
 
 
 def test_anderson_acceleration():

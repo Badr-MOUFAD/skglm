@@ -50,7 +50,8 @@ class OptAndersonCD:
             ws_size = max(min(n_features, self.p0),
                           min(n_features, 2 * gsupp_size))
 
-            opt[gsupp] = np.inf  # small hack from legacy anderson CD
+            # small hack from legacy anderson CD
+            # opt[gsupp] = np.inf
             ws = np.argpartition(opt, -ws_size)[-ws_size:]
 
             # print("============")
@@ -72,11 +73,11 @@ class OptAndersonCD:
     @njit
     def _solve_subproblem(X, y, w, Xw, datafit, penalty, max_epochs, ws, tol_in):
         ws_size = len(ws)
-        n_samples, n_features = X.shape
+        n_features = X.shape[1]
         lipschitz = datafit.lipschitz
 
         w_ws_acc = np.zeros(n_features)
-        accelerator = AndersonAcceleration(5, n_samples, ws_size)
+        accelerator = AndersonAcceleration(5, ws_size)
 
         for epoch in range(max_epochs):
 
@@ -98,9 +99,11 @@ class OptAndersonCD:
                     Xw += (w[j] - old_w_j) * X[:, j]
 
             # apply AA
-            w_ws_acc[ws], Xw_ws_acc, is_extrap = accelerator.extrapolate(w[ws], Xw)
+            w_ws_acc[ws], is_extrapolated = accelerator.extrapolate(w[ws])
 
-            if is_extrap:
+            if is_extrapolated:
+                Xw_ws_acc = _compute_Xw_ws(X, w_ws_acc, ws)
+
                 p_obj = datafit.value(y, w, Xw) + penalty.value(w)
                 p_obj_acc = (datafit.value(y, w_ws_acc, Xw_ws_acc)
                              + penalty.value(w_ws_acc))
@@ -145,3 +148,13 @@ def construct_grad(X, y, w, Xw, datafit, ws):
         grad[idx] = X[:, j] @ raw_grad
 
     return grad
+
+
+@njit
+def _compute_Xw_ws(X, w, ws):
+    Xw_ws = np.zeros(X.shape[0])
+
+    for j in ws:
+        Xw_ws += w[j] * X[:, j]
+
+    return Xw_ws
