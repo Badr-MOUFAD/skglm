@@ -100,7 +100,7 @@ class OptAndersonCD:
                              + penalty.value(w_ws_acc))
 
                 if p_obj_acc < p_obj:
-                    w[ws], Xw[:] = w_ws_acc[ws], Xw_ws_acc
+                    w[:], Xw[:] = w_ws_acc, Xw_ws_acc
                     p_obj = p_obj_acc
 
             # check convergence
