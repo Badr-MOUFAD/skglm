@@ -45,11 +45,19 @@ class OptAndersonCD:
                 break
 
             # build working sets
-            gsupp_size = penalty.generalized_support(w).sum()
+            gsupp = penalty.generalized_support(w)
+            gsupp_size = gsupp.sum()
             ws_size = max(min(n_features, self.p0),
                           min(n_features, 2 * gsupp_size))
 
+            opt[gsupp] = np.inf  # small hack from legacy anderson CD
             ws = np.argpartition(opt, -ws_size)[-ws_size:]
+
+            # print("============")
+            # print('opt :', opt)
+            # print("============")
+
+            # print(f'Iteration {iteration+1}, {ws_size} feats in subpb.')
 
             # solve sub problem
             OptAndersonCD._solve_subproblem(X, y, w, Xw, datafit, penalty,
@@ -68,7 +76,6 @@ class OptAndersonCD:
         lipschitz = datafit.lipschitz
 
         w_ws_acc = np.zeros(n_features)
-        Xw_ws_acc = np.zeros(n_samples)
         accelerator = AndersonAcceleration(5, n_samples, ws_size)
 
         for epoch in range(max_epochs):
@@ -91,10 +98,9 @@ class OptAndersonCD:
                     Xw += (w[j] - old_w_j) * X[:, j]
 
             # apply AA
-            w_ws_acc[ws], Xw_ws_acc[:], is_extrap = accelerator.extrapolate(w[ws], Xw)
+            w_ws_acc[ws], Xw_ws_acc, is_extrap = accelerator.extrapolate(w[ws], Xw)
 
             if is_extrap:
-                # TODO : manage penalty.value(w, ws) for weighted Lasso
                 p_obj = datafit.value(y, w, Xw) + penalty.value(w)
                 p_obj_acc = (datafit.value(y, w_ws_acc, Xw_ws_acc)
                              + penalty.value(w_ws_acc))
@@ -110,6 +116,10 @@ class OptAndersonCD:
                 opt_ws = penalty.subdiff_distance(w, grad_ws, ws)
 
                 stop_crit_in = np.max(opt_ws)
+
+                # p_obj = datafit.value(y, w, Xw) + penalty.value(w)
+                # print(f"Epoch {epoch+1}, objective {p_obj:.10f}, "
+                #       f"stopping crit {stop_crit_in:.2e}")
 
                 if stop_crit_in <= tol_in:
                     break
