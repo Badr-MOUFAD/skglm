@@ -7,6 +7,7 @@ from skglm.utils.data import make_correlated_data
 from skglm.experimental.sqrt_lasso import (SqrtLasso, SqrtQuadratic,
                                            _chambolle_pock_sqrt)
 from skglm.experimental.pdcd_ws import PDCD_WS
+from skglm.experimental.lad_lasso import LAD
 
 
 def test_alpha_max():
@@ -76,4 +77,25 @@ def test_PDCD_WS(with_dual_init):
 
 
 if __name__ == '__main__':
+    from sklearn.linear_model import QuantileRegressor
+
+    n_samples, n_features = 100, 1000
+    X, y, _ = make_correlated_data(n_samples, n_features, random_state=0)
+
+    alpha_max = norm(X.T @ np.sign(y), ord=np.inf)
+    alpha = alpha_max / 5
+
+    w, _, _ = PDCD_WS(max_iter=50, verbose=1).solve(X, y, LAD(), L1(alpha))
+    estimator = QuantileRegressor(fit_intercept=False, alpha=alpha/n_samples).fit(X, y)
+
+    print((w != 0).sum())
+
+    print(
+        norm(y - X @ w, ord=1) + alpha * norm(w, ord=1)
+    )
+
+    w_sk = estimator.coef_
+    print(
+        norm(y - X @ w_sk, ord=1) + alpha * norm(w_sk, ord=1)
+    )
     pass
