@@ -45,7 +45,7 @@ class LAD(BaseDatafit):
 
             # avoid comparing with 0 because of numerical errors
             # np.isclose is not used as Numba doesn't support it
-            if abs(y_minus_Xw[i]) < 1e-10:
+            if y_minus_Xw[i] == 0.:
                 distance_i = max(0, abs(z[i]) - 1)
             else:
                 distance_i = abs(z[i] + np.sign(y_minus_Xw[i]))

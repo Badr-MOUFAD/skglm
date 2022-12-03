@@ -83,7 +83,7 @@ if __name__ == '__main__':
     X, y, _ = make_correlated_data(n_samples, n_features, random_state=0)
 
     alpha_max = norm(X.T @ np.sign(y), ord=np.inf)
-    alpha = alpha_max / 5
+    alpha = alpha_max / 10
 
     w, _, _ = PDCD_WS(max_iter=50, verbose=1).solve(X, y, LAD(), L1(alpha))
     estimator = QuantileRegressor(fit_intercept=False, alpha=alpha/n_samples).fit(X, y)
