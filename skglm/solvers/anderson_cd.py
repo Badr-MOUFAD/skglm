@@ -64,12 +64,10 @@ class AndersonCD(BaseSolver):
         n_samples, n_features = X.shape
         w = np.zeros(n_features + self.fit_intercept) if w_init is None else w_init
         Xw = np.zeros(n_samples) if Xw_init is None else Xw_init
-        pen = penalty.is_penalized(n_features)
-        unpen = ~pen
-        n_unpen = unpen.sum()
         obj_out = []
         all_feats = np.arange(n_features)
         stop_crit = np.inf  # initialize for case n_iter=0
+        accelerator = AndersonAcceleration(K=5)
         w_acc, Xw_acc = np.zeros(n_features + self.fit_intercept), np.zeros(n_samples)
 
         is_sparse = sparse.issparse(X)
@@ -89,109 +87,61 @@ class AndersonCD(BaseSolver):
                     f"expected {n_features}, got {len(w)}.")
             raise ValueError(val_error_message)
 
-        for t in range(self.max_iter):
+        # 2) do iterations on smaller problem
+        is_sparse = sparse.issparse(X)
+        for epoch in range(self.max_epochs):
             if is_sparse:
-                grad = datafit.full_grad_sparse(
-                    X.data, X.indptr, X.indices, y, Xw)
+                _cd_epoch_sparse(
+                    X.data, X.indptr, X.indices, y, w[:n_features], Xw,
+                    datafit, penalty, all_feats)
             else:
-                grad = construct_grad(X, y, w[:n_features], Xw, datafit, all_feats)
+                _cd_epoch(X, y, w[:n_features], Xw, datafit, penalty, all_feats)
 
-            # The intercept is not taken into account in the optimality conditions since
-            # the derivative w.r.t. to the intercept may be very large. It is not likely
-            # to change significantly the optimality conditions.
-            if self.ws_strategy == "subdiff":
-                opt = penalty.subdiff_distance(w[:n_features], grad, all_feats)
-            elif self.ws_strategy == "fixpoint":
-                opt = dist_fix_point(w[:n_features], grad, datafit, penalty, all_feats)
-
+            # update intercept
             if self.fit_intercept:
-                intercept_opt = np.abs(datafit.intercept_update_step(y, Xw))
-            else:
-                intercept_opt = 0.
+                intercept_old = w[-1]
+                w[-1] -= datafit.intercept_update_step(y, Xw)
+                Xw += (w[-1] - intercept_old)
 
-            stop_crit = max(np.max(opt), intercept_opt)
+            # 3) do Anderson acceleration on smaller problem
+            w_acc, Xw_acc[:], is_extrap = accelerator.extrapolate(w.copy(), Xw.copy())
 
-            if self.verbose:
-                print(f"Stopping criterion max violation: {stop_crit:.2e}")
-            if stop_crit <= self.tol:
-                break
-            # 1) select features : all unpenalized, + 2 * (nnz and penalized)
-            ws_size = max(min(self.p0 + n_unpen, n_features),
-                          min(2 * penalty.generalized_support(w[:n_features]).sum() -
-                              n_unpen, n_features))
+            if is_extrap:  # avoid computing p_obj for un-extrapolated w, Xw
+                # TODO : manage penalty.value(w, ws) for weighted Lasso
+                p_obj = (datafit.value(y, w[:n_features], Xw) +
+                         penalty.value(w[:n_features]))
+                p_obj_acc = (datafit.value(y, w_acc[:n_features], Xw_acc) +
+                             penalty.value(w_acc[:n_features]))
 
-            opt[unpen] = np.inf  # always include unpenalized features
-            opt[penalty.generalized_support(w[:n_features])] = np.inf
+                if p_obj_acc < p_obj:
+                    w[:], Xw[:] = w_acc, Xw_acc
+                    p_obj = p_obj_acc
 
-            # here use topk instead of np.argsort(opt)[-ws_size:]
-            ws = np.argpartition(opt, -ws_size)[-ws_size:]
-
-            # re init AA at every iter to consider ws
-            accelerator = AndersonAcceleration(K=5)
-            w_acc[:] = 0.
-            # ws to be used in AndersonAcceleration
-            ws_intercept = np.append(ws, -1) if self.fit_intercept else ws
-
-            if self.verbose:
-                print(f'Iteration {t + 1}, {ws_size} feats in subpb.')
-
-            # 2) do iterations on smaller problem
-            is_sparse = sparse.issparse(X)
-            for epoch in range(self.max_epochs):
+            if epoch % 10 == 0:
                 if is_sparse:
-                    _cd_epoch_sparse(
-                        X.data, X.indptr, X.indices, y, w[:n_features], Xw,
-                        datafit, penalty, ws)
+                    grad_ws = construct_grad_sparse(
+                        X.data, X.indptr, X.indices, y, w, Xw, datafit, all_feats)
                 else:
-                    _cd_epoch(X, y, w[:n_features], Xw, datafit, penalty, ws)
+                    grad_ws = construct_grad(X, y, w, Xw, datafit, all_feats)
+                if self.ws_strategy == "subdiff":
+                    opt_ws = penalty.subdiff_distance(
+                        w[:n_features], grad_ws, all_feats)
+                elif self.ws_strategy == "fixpoint":
+                    opt_ws = dist_fix_point(
+                        w[:n_features], grad_ws, datafit, penalty, all_feats)
 
-                # update intercept
-                if self.fit_intercept:
-                    intercept_old = w[-1]
-                    w[-1] -= datafit.intercept_update_step(y, Xw)
-                    Xw += (w[-1] - intercept_old)
-
-                # 3) do Anderson acceleration on smaller problem
-                w_acc[ws_intercept], Xw_acc[:], is_extrap = accelerator.extrapolate(
-                    w[ws_intercept], Xw)
-
-                if is_extrap:  # avoid computing p_obj for un-extrapolated w, Xw
-                    # TODO : manage penalty.value(w, ws) for weighted Lasso
+                stop_crit = np.max(opt_ws)
+                if max(self.verbose - 1, 0):
                     p_obj = (datafit.value(y, w[:n_features], Xw) +
                              penalty.value(w[:n_features]))
-                    p_obj_acc = (datafit.value(y, w_acc[:n_features], Xw_acc) +
-                                 penalty.value(w_acc[:n_features]))
+                    print(f"Epoch {epoch + 1}, objective {p_obj:.10f}, "
+                          f"stopping crit {stop_crit:.2e}")
 
-                    if p_obj_acc < p_obj:
-                        w[:], Xw[:] = w_acc, Xw_acc
-                        p_obj = p_obj_acc
-
-                if epoch % 10 == 0:
-                    if is_sparse:
-                        grad_ws = construct_grad_sparse(
-                            X.data, X.indptr, X.indices, y, w, Xw, datafit, ws)
-                    else:
-                        grad_ws = construct_grad(X, y, w, Xw, datafit, ws)
-                    if self.ws_strategy == "subdiff":
-                        opt_ws = penalty.subdiff_distance(w[:n_features], grad_ws, ws)
-                    elif self.ws_strategy == "fixpoint":
-                        opt_ws = dist_fix_point(
-                            w[:n_features], grad_ws, datafit, penalty, ws)
-
-                    stop_crit_in = np.max(opt_ws)
+                if stop_crit < self.tol:
                     if max(self.verbose - 1, 0):
-                        p_obj = (datafit.value(y, w[:n_features], Xw) +
-                                 penalty.value(w[:n_features]))
-                        print(f"Epoch {epoch + 1}, objective {p_obj:.10f}, "
-                              f"stopping crit {stop_crit_in:.2e}")
-                    if ws_size == n_features:
-                        if stop_crit_in <= self.tol:
-                            break
-                    else:
-                        if stop_crit_in < 0.3 * stop_crit:
-                            if max(self.verbose - 1, 0):
-                                print("Early exit")
-                            break
+                        print("Early exit")
+                    break
+
             p_obj = datafit.value(y, w[:n_features], Xw) + penalty.value(w[:n_features])
             obj_out.append(p_obj)
         return w, np.array(obj_out), stop_crit
@@ -259,7 +209,7 @@ class AndersonCD(BaseSolver):
         return results
 
 
-@njit
+@ njit
 def _cd_epoch(X, y, w, Xw, datafit, penalty, ws):
     """Run an epoch of coordinate descent in place.
 
@@ -298,7 +248,7 @@ def _cd_epoch(X, y, w, Xw, datafit, penalty, ws):
             Xw += (w[j] - old_w_j) * Xj
 
 
-@njit
+@ njit
 def _cd_epoch_sparse(X_data, X_indptr, X_indices, y, w, Xw, datafit, penalty, ws):
     """Run an epoch of coordinate descent in place for a sparse CSC array.
 
