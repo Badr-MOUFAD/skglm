@@ -175,13 +175,15 @@ def test_mtl_path():
     (Logistic, L1, SparseLogisticRegression, [alpha]),
 ])
 @pytest.mark.parametrize('fit_intercept', [True, False])
-def test_generic_estimator(fit_intercept, Datafit, Penalty, Estimator, pen_args):
+@pytest.mark.parametrize('use_acc', [True, False])
+def test_generic_estimator(use_acc, fit_intercept,
+                           Datafit, Penalty, Estimator, pen_args):
     if isinstance(Datafit(), QuadraticSVC) and fit_intercept:
         pytest.xfail()
     elif Datafit == Logistic and fit_intercept:
         pytest.xfail("TODO support intercept in Logistic datafit")
     else:
-        solver = AndersonCD(tol=tol, fit_intercept=fit_intercept)
+        solver = AndersonCD(use_acc=use_acc, tol=tol, fit_intercept=fit_intercept)
         target = Y if Datafit == QuadraticMultiTask else y
         gle = GeneralizedLinearEstimator(
             Datafit(), Penalty(*pen_args), solver).fit(X, target)
