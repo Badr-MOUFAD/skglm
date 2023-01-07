@@ -40,7 +40,8 @@ n_samples, n_features = X.shape
 # Lasso will fit with binary values, but else logreg's alpha_max is wrong:
 y = np.sign(y)
 alpha_max = norm(X.T @ y, ord=np.inf) / n_samples
-alpha = 0.05 * alpha_max
+# MCP yields different results depending on AndersonCD(use_acc) when rho<=0.06
+alpha = 0.07 * alpha_max
 C = 1 / alpha
 tol = 1e-10
 l1_ratio = 0.3
