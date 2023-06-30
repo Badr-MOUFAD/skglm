@@ -242,7 +242,7 @@ class GeneralizedLinearEstimator(LinearModel):
         if isinstance(self.datafit, Cox):
             raise ValueError(
                 "`GeneralizedLinearEstimator` doesn't currently support "
-                "`Cox` datafit"
+                "`Cox` datafit."
             )
 
         self.penalty = self.penalty if self.penalty else L1(1.)
