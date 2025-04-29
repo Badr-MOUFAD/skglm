@@ -32,6 +32,10 @@ class AndersonCD(BaseSolver):
     ws_strategy : ('subdiff'|'fixpoint'), optional
         The score used to build the working set.
 
+    use_acc : bool, optional
+        If ``True`` uses Anderson extrapolation for acceleration.
+        Default ``True``.
+
     verbose : bool or int, optional
         Amount of verbosity. 0/False is silent.
 
@@ -53,7 +57,7 @@ class AndersonCD(BaseSolver):
 
     def __init__(self, max_iter=50, max_epochs=50_000, p0=10,
                  tol=1e-4, ws_strategy="subdiff", fit_intercept=True,
-                 warm_start=False, verbose=0):
+                 warm_start=False, use_acc=True, verbose=0):
         self.max_iter = max_iter
         self.max_epochs = max_epochs
         self.p0 = p0
@@ -61,6 +65,7 @@ class AndersonCD(BaseSolver):
         self.ws_strategy = ws_strategy
         self.fit_intercept = fit_intercept
         self.warm_start = warm_start
+        self.use_acc = use_acc
         self.verbose = verbose
 
     def _solve(self, X, y, datafit, penalty, w_init=None, Xw_init=None):
@@ -76,7 +81,10 @@ class AndersonCD(BaseSolver):
         obj_out = []
         all_feats = np.arange(n_features)
         stop_crit = np.inf  # initialize for case n_iter=0
-        w_acc, Xw_acc = np.zeros(n_features + self.fit_intercept), np.zeros(n_samples)
+
+        if self.use_acc:
+            w_acc = np.zeros(n_features + self.fit_intercept)
+            Xw_acc = np.zeros(n_samples)
 
         is_sparse = sparse.issparse(X)
         if is_sparse:
@@ -139,8 +147,10 @@ class AndersonCD(BaseSolver):
             ws = np.argpartition(opt, -ws_size)[-ws_size:]
 
             # re init AA at every iter to consider ws
-            accelerator = AndersonAcceleration(K=5)
-            w_acc[:] = 0.
+            if self.use_acc:
+                accelerator = AndersonAcceleration(K=5)
+                w_acc[:] = 0.
+
             # ws to be used in AndersonAcceleration
             ws_intercept = np.append(ws, -1) if self.fit_intercept else ws
 
@@ -166,19 +176,20 @@ class AndersonCD(BaseSolver):
                     Xw += (w[-1] - intercept_old)
 
                 # 3) do Anderson acceleration on smaller problem
-                w_acc[ws_intercept], Xw_acc[:], is_extrap = accelerator.extrapolate(
-                    w[ws_intercept], Xw)
+                if self.use_acc:
+                    w_acc[ws_intercept], Xw_acc[:], is_acc = accelerator.extrapolate(
+                        w[ws_intercept], Xw)
 
-                if is_extrap:  # avoid computing p_obj for un-extrapolated w, Xw
-                    # TODO : manage penalty.value(w, ws) for weighted Lasso
-                    p_obj = (datafit.value(y, w[:n_features], Xw) +
-                             penalty.value(w[:n_features]))
-                    p_obj_acc = (datafit.value(y, w_acc[:n_features], Xw_acc) +
-                                 penalty.value(w_acc[:n_features]))
+                    if is_acc:  # avoid computing p_obj for un-extrapolated w, Xw
+                        # TODO : manage penalty.value(w, ws) for weighted Lasso
+                        p_obj = (datafit.value(y, w[:n_features], Xw) +
+                                 penalty.value(w[:n_features]))
+                        p_obj_acc = (datafit.value(y, w_acc[:n_features], Xw_acc) +
+                                     penalty.value(w_acc[:n_features]))
 
-                    if p_obj_acc < p_obj:
-                        w[:], Xw[:] = w_acc, Xw_acc
-                        p_obj = p_obj_acc
+                        if p_obj_acc < p_obj:
+                            w[:], Xw[:] = w_acc, Xw_acc
+                            p_obj = p_obj_acc
 
                 if epoch % 10 == 0:
                     if is_sparse:

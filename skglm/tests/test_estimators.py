@@ -42,7 +42,8 @@ n_samples, n_features = X.shape
 # Lasso will fit with binary values, but else logreg's alpha_max is wrong:
 y = np.sign(y)
 alpha_max = norm(X.T @ y, ord=np.inf) / n_samples
-alpha = 0.05 * alpha_max
+# MCP yields different results depending on AndersonCD(use_acc) when rho<=0.06
+alpha = 0.07 * alpha_max
 C = 1 / alpha
 tol = 1e-10
 l1_ratio = 0.3
@@ -425,13 +426,15 @@ def test_cox_SLOPE(use_efron):
     (Logistic, L1, SparseLogisticRegression, [alpha]),
 ])
 @pytest.mark.parametrize('fit_intercept', [True, False])
-def test_generic_estimator(fit_intercept, Datafit, Penalty, Estimator, pen_args):
+@pytest.mark.parametrize('use_acc', [True, False])
+def test_generic_estimator(use_acc, fit_intercept,
+                           Datafit, Penalty, Estimator, pen_args):
     if isinstance(Datafit(), QuadraticSVC) and fit_intercept:
         pytest.xfail()
     elif Datafit == Logistic and fit_intercept:
         pytest.xfail("TODO support intercept in Logistic datafit")
     else:
-        solver = AndersonCD(tol=tol, fit_intercept=fit_intercept)
+        solver = AndersonCD(use_acc=use_acc, tol=tol, fit_intercept=fit_intercept)
         target = Y if Datafit == QuadraticMultiTask else y
         gle = GeneralizedLinearEstimator(
             Datafit(), Penalty(*pen_args), solver).fit(X, target)
